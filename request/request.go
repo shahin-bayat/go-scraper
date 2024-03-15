@@ -38,7 +38,9 @@ func Scrape(url, cookie, questionId, requestType string, payload PreflightPayloa
 
 	c.OnResponse(func(res *colly.Response) {
 		fmt.Println("Response received")
-		os.WriteFile(filename, res.Body, 0644)
+		if requestType != "SUBMIT" {
+			os.WriteFile(filename, res.Body, 0644)
+		}
 	})
 
 	c.OnError(func(r *colly.Response, e error) {

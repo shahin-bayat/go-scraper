@@ -28,7 +28,7 @@ func main() {
 		panic(err)
 	}
 
-	for i := 1; i <= 5; i++ {
+	for i := 1; i <= 3; i++ {
 		time.Sleep(3 * time.Second)
 		payload, _, err = request.Scrape(mainUrl, cookie, pages[strconv.Itoa(i)], "P30_ROWNUM", payload, "index"+strconv.Itoa(i)+".html")
 		if err != nil {
