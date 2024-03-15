@@ -1,27 +1,39 @@
 package main
 
 import (
-	"log"
+	"strconv"
+	"time"
 
 	"github.com/shahin-bayat/go-scraper/request"
+	"github.com/shahin-bayat/go-scraper/util"
 )
-
-const (
-	initialUrl string = "https://oet.bamf.de/ords/oetut/f?p=514:1"
-	mainUrl    string = "https://oet.bamf.de/ords/oetut/f?p=514:30:0::NO:::"
-)
-
-var isInitial bool = true
 
 func main() {
-	data, cookieStr, err := request.Scrape(initialUrl, "", "initial.html", &isInitial)
+	var cookie string
+	var categories map[string]string
+	var pages map[string]string
+	var payload request.PreflightPayload
+	var err error
+
+	initialUrl := util.GetEnvVariable("INITIAL_URL")
+	mainUrl := util.GetEnvVariable("MAIN_URL")
+
+	payload, cookie, categories, err = request.ScrapeInitialPage(initialUrl)
 	if err != nil {
-		log.Fatalf("Error performing preflight request: %s", err)
+		panic(err)
 	}
 
-	request.Preflight(cookieStr, &data, &isInitial)
-	isInitial = false
+	payload, pages, err = request.Scrape(mainUrl, cookie, categories["Bayern"], "SUBMIT", payload, "index1.html")
+	if err != nil {
+		panic(err)
+	}
 
-	request.Scrape(mainUrl, cookieStr, "index.html", &isInitial)
+	for i := 1; i <= 5; i++ {
+		time.Sleep(3 * time.Second)
+		payload, _, err = request.Scrape(mainUrl, cookie, pages[strconv.Itoa(i)], "P30_ROWNUM", payload, "index"+strconv.Itoa(i)+".html")
+		if err != nil {
+			panic(err)
+		}
+	}
 
 }
