@@ -39,8 +39,8 @@ func Scrape(url, cookie, questionKey, requestType string, payload PreflightPaylo
 
 	// TODO: DEBUG PURPOSES ONLY - DELETE LATER
 	c.OnResponse(func(res *colly.Response) {
-		fmt.Println("Response received")
 		if requestType != "SUBMIT" {
+			fmt.Printf("question key %v: response received\n", questionKey)
 			os.WriteFile(questionKey+".html", res.Body, 0644)
 		}
 	})
@@ -48,13 +48,6 @@ func Scrape(url, cookie, questionKey, requestType string, payload PreflightPaylo
 	c.OnError(func(r *colly.Response, e error) {
 		log.Fatalf("Ooops, an error occurred!:%s", e)
 	})
-
-	// c.OnHTML("table.t3ReportsRegion td.RegionHeader", func(e *colly.HTMLElement) {
-	// 	if requestType == "SUBMIT" && strings.Contains(e.Text, "von") {
-	// 		questionsCount := strings.Split(e.Text, " ")[3]
-	// 		fmt.Println(questionsCount)
-	// 	}
-	// })
 
 	c.OnHTML("input[type=hidden]", func(e *colly.HTMLElement) {
 		name := e.Attr("name")
@@ -84,19 +77,32 @@ func Scrape(url, cookie, questionKey, requestType string, payload PreflightPaylo
 			return
 		}
 		if e.Attr("value") != "%null%" {
-			if err := model.SaveQuestion(e.Text, e.Attr("value"), questionKey, db); err != nil {
+			if err := model.CreateQuestion(e.Text, e.Attr("value"), questionKey, db); err != nil {
 				log.Fatalf("Error saving question:%s", err)
 			}
 		}
 	})
 
 	c.OnHTML("span#P30_AUFGABENSTELLUNG_BILD img", func(e *colly.HTMLElement) {
-		if requestType == "P30_ROWNUM" {
-			fmt.Println(e.Attr("src"))
-			if err := model.UpdateQuestion(questionKey, e.Attr("src"), db); err != nil {
-				log.Fatalf("Error updating question:%s", err)
-			}
+		if requestType != "P30_ROWNUM" {
+			return
 		}
+		if err := model.UpdateQuestion(questionKey, e.Attr("src"), db); err != nil {
+			log.Fatalf("Error updating question:%s", err)
+		}
+
+	})
+
+	c.OnHTML("tr td[headers=RICHTIGE_ANTWORT]", func(e *colly.HTMLElement) {
+		if requestType != "P30_ROWNUM" {
+			return
+		}
+		answerText := e.DOM.Parent().Find("td[headers=ANTWORT]").Text()
+		isCorrect := strings.Contains(e.Text, "richtige Antwort")
+		if err := model.CreateAnswer(questionKey, answerText, isCorrect, db); err != nil {
+			log.Fatalf("Error creating answer:%s", err)
+		}
+
 	})
 
 	payloadMap := map[string]string{
@@ -156,11 +162,9 @@ func ScrapeInitialPage(url string, db *gorm.DB) (PreflightPayload, string, error
 	})
 
 	c.OnHTML("select[name=p_t01] option", func(e *colly.HTMLElement) {
-		modelCategory := model.Category{
-			Text:        e.Text,
-			CategoryKey: e.Attr("value"),
+		if err := model.CreateCategory(e.Text, e.Attr("value"), db); err != nil {
+			log.Fatalf("Error saving category:%s", err)
 		}
-		db.Create(&modelCategory)
 	})
 
 	c.OnResponse(func(res *colly.Response) {

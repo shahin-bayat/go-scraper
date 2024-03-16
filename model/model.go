@@ -38,7 +38,19 @@ type Answer struct {
 	UpdatedAt  time.Time
 }
 
-func SaveQuestion(questionNumber, questionKey string, categoryKey string, db *gorm.DB) error {
+func CreateCategory(text, categoryKey string, db *gorm.DB) error {
+	modelCategory := Category{
+		Text:        text,
+		CategoryKey: categoryKey,
+	}
+	result := db.FirstOrCreate(&modelCategory, Category{CategoryKey: categoryKey})
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
+}
+
+func CreateQuestion(questionNumber, questionKey string, categoryKey string, db *gorm.DB) error {
 	var categoryId uint
 	result := db.Model(&Category{}).Where("category_key = ?", categoryKey).Select("id").Find(&categoryId)
 	if result.Error != nil {
@@ -51,7 +63,7 @@ func SaveQuestion(questionNumber, questionKey string, categoryKey string, db *go
 		QuestionKey:    questionKey,
 		CategoryID:     categoryId,
 	}
-	result = db.Create(&modelQuestion)
+	result = db.FirstOrCreate(&modelQuestion, Question{QuestionKey: questionKey})
 	if result.Error != nil {
 		log.Fatalf("Error creating question:%s", result.Error)
 		return result.Error
@@ -66,5 +78,34 @@ func UpdateQuestion(questionKey, imagePath string, db *gorm.DB) error {
 		log.Fatalf("Error updating question image path:%s", result.Error)
 		return result.Error
 	}
+	return nil
+}
+
+func CreateAnswer(questionKey, text string, isCorrect bool, db *gorm.DB) error {
+	var questionId uint
+	result := db.Model(&Question{}).Where("question_key = ?", questionKey).Select("id").Find(&questionId)
+	if result.Error != nil {
+		log.Fatalf("Error fetching question id:%s", result.Error)
+		return result.Error
+	}
+
+	modelAnswer := Answer{
+		QuestionID: questionId,
+		Text:       text,
+		IsCorrect:  isCorrect,
+	}
+	result = db.Create(&modelAnswer)
+	if result.Error != nil {
+		log.Fatalf("Error creating answer:%s", result.Error)
+		return result.Error
+	}
+
+	// update questions set is_fetched = true where question_key = questionKey
+	result = db.Model(&Question{}).Where("question_key = ?", questionKey).Update("is_fetched", true)
+	if result.Error != nil {
+		log.Fatalf("Error updating question is_fetched:%s", result.Error)
+		return result.Error
+	}
+
 	return nil
 }
