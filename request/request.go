@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/gocolly/colly"
+	"github.com/shahin-bayat/go-scraper/model"
+	"gorm.io/gorm"
 )
 
 type PreflightPayload struct {
@@ -20,8 +22,7 @@ type PreflightPayload struct {
 	p_page_checksum      string
 }
 
-func Scrape(url, cookie, questionId, requestType string, payload PreflightPayload, filename string) (PreflightPayload, map[string]string, error) {
-	var pages = make(map[string]string)
+func Scrape(url, cookie, questionKey, requestType string, payload PreflightPayload, db *gorm.DB) (PreflightPayload, error) {
 
 	var responsePayload = &PreflightPayload{}
 
@@ -36,16 +37,24 @@ func Scrape(url, cookie, questionId, requestType string, payload PreflightPayloa
 		SetHeaders(req, &headers)
 	})
 
+	// TODO: DEBUG PURPOSES ONLY - DELETE LATER
 	c.OnResponse(func(res *colly.Response) {
 		fmt.Println("Response received")
 		if requestType != "SUBMIT" {
-			os.WriteFile(filename, res.Body, 0644)
+			os.WriteFile(questionKey+".html", res.Body, 0644)
 		}
 	})
 
 	c.OnError(func(r *colly.Response, e error) {
 		log.Fatalf("Ooops, an error occurred!:%s", e)
 	})
+
+	// c.OnHTML("table.t3ReportsRegion td.RegionHeader", func(e *colly.HTMLElement) {
+	// 	if requestType == "SUBMIT" && strings.Contains(e.Text, "von") {
+	// 		questionsCount := strings.Split(e.Text, " ")[3]
+	// 		fmt.Println(questionsCount)
+	// 	}
+	// })
 
 	c.OnHTML("input[type=hidden]", func(e *colly.HTMLElement) {
 		name := e.Attr("name")
@@ -75,7 +84,7 @@ func Scrape(url, cookie, questionId, requestType string, payload PreflightPayloa
 			return
 		}
 		if e.Attr("value") != "%null%" {
-			pages[e.Text] = e.Attr("value")
+			model.SaveQuestion(e.Text, e.Attr("value"), questionKey, db)
 		}
 	})
 
@@ -86,20 +95,19 @@ func Scrape(url, cookie, questionId, requestType string, payload PreflightPayloa
 		"p_page_submission_id": payload.p_page_submission_id,
 		"p_request":            payload.p_request,
 		"p_arg_names":          payload.p_arg_names,
-		"p_t01":                questionId,
+		"p_t01":                questionKey,
 		"p_md5_checksum":       payload.p_md5_checksum,
 		"p_page_checksum":      payload.p_page_checksum,
 	}
 
 	c.Post(url, payloadMap)
 
-	return *responsePayload, pages, nil
+	return *responsePayload, nil
 
 }
 
-func ScrapeInitialPage(url string) (PreflightPayload, string, map[string]string, error) {
+func ScrapeInitialPage(url string, db *gorm.DB) (PreflightPayload, string, error) {
 	var cookieStr string
-	var categories = make(map[string]string)
 	payload := &PreflightPayload{}
 
 	c := colly.NewCollector()
@@ -137,7 +145,11 @@ func ScrapeInitialPage(url string) (PreflightPayload, string, map[string]string,
 	})
 
 	c.OnHTML("select[name=p_t01] option", func(e *colly.HTMLElement) {
-		categories[e.Text] = e.Attr("value")
+		modelCategory := model.Category{
+			Text:        e.Text,
+			CategoryKey: e.Attr("value"),
+		}
+		db.Create(&modelCategory)
 	})
 
 	c.OnResponse(func(res *colly.Response) {
@@ -149,5 +161,5 @@ func ScrapeInitialPage(url string) (PreflightPayload, string, map[string]string,
 	})
 
 	c.Visit(url)
-	return *payload, cookieStr, categories, nil
+	return *payload, cookieStr, nil
 }
