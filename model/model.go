@@ -38,12 +38,12 @@ type Answer struct {
 	UpdatedAt  time.Time
 }
 
-func SaveQuestion(questionNumber, questionKey string, categoryKey string, db *gorm.DB) {
-
+func SaveQuestion(questionNumber, questionKey string, categoryKey string, db *gorm.DB) error {
 	var categoryId uint
 	result := db.Model(&Category{}).Where("category_key = ?", categoryKey).Select("id").Find(&categoryId)
 	if result.Error != nil {
 		log.Fatalf("Error fetching category id:%s", result.Error)
+		return result.Error
 	}
 
 	modelQuestion := Question{
@@ -51,5 +51,20 @@ func SaveQuestion(questionNumber, questionKey string, categoryKey string, db *go
 		QuestionKey:    questionKey,
 		CategoryID:     categoryId,
 	}
-	db.Create(&modelQuestion)
+	result = db.Create(&modelQuestion)
+	if result.Error != nil {
+		log.Fatalf("Error creating question:%s", result.Error)
+		return result.Error
+	}
+
+	return nil
+}
+
+func UpdateQuestion(questionKey, imagePath string, db *gorm.DB) error {
+	result := db.Model(&Question{}).Where("question_key = ?", questionKey).Update("image_path", imagePath)
+	if result.Error != nil {
+		log.Fatalf("Error updating question image path:%s", result.Error)
+		return result.Error
+	}
+	return nil
 }

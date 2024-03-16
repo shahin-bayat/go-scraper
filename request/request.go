@@ -84,7 +84,18 @@ func Scrape(url, cookie, questionKey, requestType string, payload PreflightPaylo
 			return
 		}
 		if e.Attr("value") != "%null%" {
-			model.SaveQuestion(e.Text, e.Attr("value"), questionKey, db)
+			if err := model.SaveQuestion(e.Text, e.Attr("value"), questionKey, db); err != nil {
+				log.Fatalf("Error saving question:%s", err)
+			}
+		}
+	})
+
+	c.OnHTML("span#P30_AUFGABENSTELLUNG_BILD img", func(e *colly.HTMLElement) {
+		if requestType == "P30_ROWNUM" {
+			fmt.Println(e.Attr("src"))
+			if err := model.UpdateQuestion(questionKey, e.Attr("src"), db); err != nil {
+				log.Fatalf("Error updating question:%s", err)
+			}
 		}
 	})
 
