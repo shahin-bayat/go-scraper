@@ -76,8 +76,9 @@ func Scrape(url, cookie, questionKey, requestType string, payload PreflightPaylo
 		if requestType != "SUBMIT" {
 			return
 		}
+		categoryKey := questionKey
 		if e.Attr("value") != "%null%" {
-			if err := model.CreateQuestion(e.Text, e.Attr("value"), questionKey, db); err != nil {
+			if err := model.CreateQuestion(e.Text, e.Attr("value"), categoryKey, db); err != nil {
 				log.Fatalf("Error saving question:%s", err)
 			}
 		}

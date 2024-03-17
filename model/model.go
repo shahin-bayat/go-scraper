@@ -50,7 +50,7 @@ func CreateCategory(text, categoryKey string, db *gorm.DB) error {
 	return nil
 }
 
-func CreateQuestion(questionNumber, questionKey string, categoryKey string, db *gorm.DB) error {
+func CreateQuestion(questionNumber, questionKey, categoryKey string, db *gorm.DB) error {
 	var categoryId uint
 	result := db.Model(&Category{}).Where("category_key = ?", categoryKey).Select("id").Find(&categoryId)
 	if result.Error != nil {
