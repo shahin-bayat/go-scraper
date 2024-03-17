@@ -24,7 +24,7 @@ func main() {
 	}
 
 	// TODO: DEBUG PURPOSES ONLY - DELETE LATER
-	// db.Migrator().DropTable(&model.Category{}, &model.Question{}, &model.Answer{})
+	db.Migrator().DropTable(&model.Category{}, &model.Question{}, &model.Answer{})
 
 	db.AutoMigrate(&model.Category{}, &model.Question{}, &model.Answer{})
 
@@ -52,7 +52,11 @@ func main() {
 		panic(err)
 	}
 
-	result := db.Model(&model.Question{}).Where("category_id = ? AND is_fetched = ?", 2, false).Limit(3).Find(&questions)
+	// SELECT questions FROM `questions` join categories on categories.category_id = question.id
+	// WHERE categories.category_key = "4" AND questions.is_fetched = false
+	// LIMIT 1
+	result := db.Joins("Categories").Where("is_fetched = ?", false).Where("category_key = ?", "2").Find(&questions)
+
 	if result.Error != nil {
 		log.Fatalf(result.Error.Error())
 	}

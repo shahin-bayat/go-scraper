@@ -10,15 +10,15 @@ import (
 type Category struct {
 	ID          uint `gprm:"primaryKey"`
 	Text        string
-	CategoryKey string     // 4, 5, 6, ...
-	Questions   []Question `gorm:"foreignKey:CategoryID"`
+	CategoryKey string      // 4, 5, 6, ...
+	Questions   []*Question `gorm:"many2many:category_questions;"`
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
 
 type Question struct {
-	ID             uint `gprm:"primaryKey"`
-	CategoryID     uint
+	ID             uint        `gprm:"primaryKey"`
+	Categories     []*Category `gorm:"many2many:category_questions;"`
 	ImagePath      string
 	Text           *string
 	QuestionNumber string   // 1, 2, 3, ...
@@ -61,12 +61,15 @@ func CreateQuestion(questionNumber, questionKey string, categoryKey string, db *
 	modelQuestion := Question{
 		QuestionNumber: questionNumber,
 		QuestionKey:    questionKey,
-		CategoryID:     categoryId,
 	}
 	result = db.FirstOrCreate(&modelQuestion, Question{QuestionKey: questionKey})
 	if result.Error != nil {
 		log.Fatalf("Error creating question:%s", result.Error)
 		return result.Error
+	}
+
+	if err := db.Model(&modelQuestion).Association("Categories").Append(&Category{ID: categoryId}); err != nil {
+		return err
 	}
 
 	return nil
