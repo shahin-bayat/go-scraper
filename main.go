@@ -23,7 +23,7 @@ func main() {
 		log.Fatalf(err.Error())
 	}
 
-	// TODO: DEBUG PURPOSES ONLY - DELETE LATER
+	// INFO: DEBUG PURPOSES ONLY - DELETE LATER
 	// db.Migrator().DropTable(&model.Category{}, &model.Question{}, &model.Answer{})
 
 	db.AutoMigrate(&model.Category{}, &model.Question{}, &model.Answer{})
@@ -31,27 +31,21 @@ func main() {
 	initialUrl := util.GetEnvVariable("INITIAL_URL")
 	mainUrl := util.GetEnvVariable("MAIN_URL")
 
-	// initial request to fetch cookie and categories
+	// STEP 1. Fetch cookie and Categories
 	payload, cookie, err = request.ScrapeInitialPage(initialUrl, db)
 	if err != nil {
 		panic(err)
 	}
 
-	// result := db.Model(&model.Category{}).Find(&categories)
-
-	// if result.Error != nil {
-	// 	log.Fatalf(result.Error.Error())
-	// }
-
-	// initial POST request defines which federal state's questions to fetch
-	// saves question(questionKey and questionNumber) in db
-	// from this request on, categoryKey should be questionKey
-	// TODO: "4" is the categoryKey, it should be dynamic categoryKey
+	// FIXME: "3" is the categoryKey, it should be dynamic
+	// STEP 2: Fetch questions (key and number)
 	payload, err = request.Scrape(mainUrl, cookie, "3", "SUBMIT", payload, db)
 	if err != nil {
 		panic(err)
 	}
 
+	// FIXME: 2 is the categoryID for categoryKey = 3, it should be dynamic
+	// STEP 3: Loop through questions and fetch answers
 	result := db.Model(&model.Question{}).Where("category_id = ? AND is_fetched = ?", 2, false).Limit(3).Find(&questions)
 	if result.Error != nil {
 		log.Fatalf(result.Error.Error())
