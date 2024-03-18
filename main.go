@@ -4,7 +4,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/shahin-bayat/go-scraper/model"
+	// "time"
+
 	"github.com/shahin-bayat/go-scraper/request"
 	"github.com/shahin-bayat/go-scraper/store"
 	"github.com/shahin-bayat/go-scraper/util"
@@ -13,52 +14,72 @@ import (
 func main() {
 	var cookie string
 	// var categories []model.Category
-	var questions []model.Question
+	// var questions []model.Question
 	var _ map[string]string
 	var payload request.PreflightPayload
 	var err error
 
-	db, err := store.NewPostgresStore()
+	store, err := store.NewPostgresStore()
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
 
-	// INFO: DEBUG PURPOSES ONLY - DELETE LATER
-	// db.Migrator().DropTable(&model.Category{}, &model.Question{}, &model.Answer{})
-
-	db.AutoMigrate(&model.Category{}, &model.Question{}, &model.Answer{})
+	if err = store.Init(); err != nil {
+		log.Fatalf(err.Error())
+	}
 
 	initialUrl := util.GetEnvVariable("INITIAL_URL")
 	mainUrl := util.GetEnvVariable("MAIN_URL")
 
 	// STEP 1. Fetch cookie and Categories
-	payload, cookie, err = request.ScrapeInitialPage(initialUrl, db)
+	payload, cookie, err = request.ScrapeInitialPage(initialUrl, store)
 	if err != nil {
 		panic(err)
 	}
 
-	// FIXME: "3" is the categoryKey, it should be dynamic
+	// TODO: for debugging purposes only, delete later
+	category, err := store.GetCategoryByText("Bayern")
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
+	categoryKey := category.CategoryKey
+
 	// STEP 2: Fetch questions (key and number)
-	payload, err = request.Scrape(mainUrl, cookie, "3", "SUBMIT", payload, db)
+	payload, err = request.Scrape(mainUrl, cookie, categoryKey, "SUBMIT", payload, store)
 	if err != nil {
 		panic(err)
 	}
 
-	// FIXME: 2 is the categoryID for categoryKey = 3, it should be dynamic
+	// TODO: loop through categories and fetch questions
+	// categories, err := store.GetCategories()
+	// if err != nil {
+	// 	log.Fatalf(err.Error())
+	// }
+	// fmt.Println(categories)
+
 	// STEP 3: Loop through questions and fetch answers
-	result := db.Model(&model.Question{}).Where("category_id = ? AND is_fetched = ?", 2, false).Limit(3).Find(&questions)
-	if result.Error != nil {
-		log.Fatalf(result.Error.Error())
+	questions, err := store.GetQuestionsByCategoryId(category.ID)
+	if err != nil {
+		log.Fatalf(err.Error())
 	}
 
-	for i := range questions {
+	for i := 0; i <= 1; i++ {
 		time.Sleep(3 * time.Second)
-
 		question := questions[i]
-		payload, err = request.Scrape(mainUrl, cookie, question.QuestionKey, "P30_ROWNUM", payload, db)
+		payload, err = request.Scrape(mainUrl, cookie, question.QuestionKey, "P30_ROWNUM", payload, store)
 		if err != nil {
 			panic(err)
 		}
 	}
+
+	// for i := range questions {
+	// 	time.Sleep(3 * time.Second)
+
+	// 	question := questions[i]
+	// 	payload, err = request.Scrape(mainUrl, cookie, question.QuestionKey, "P30_ROWNUM", payload, store)
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
+	// }
 
 }

@@ -8,7 +8,7 @@ import (
 
 	"github.com/gocolly/colly"
 	"github.com/shahin-bayat/go-scraper/model"
-	"gorm.io/gorm"
+	"github.com/shahin-bayat/go-scraper/store"
 )
 
 type PreflightPayload struct {
@@ -22,7 +22,7 @@ type PreflightPayload struct {
 	p_page_checksum      string
 }
 
-func Scrape(url, cookie, questionKey, requestType string, payload PreflightPayload, db *gorm.DB) (PreflightPayload, error) {
+func Scrape(url, cookie, questionKey, requestType string, payload PreflightPayload, store *store.Store) (PreflightPayload, error) {
 
 	var responsePayload = &PreflightPayload{}
 
@@ -76,10 +76,15 @@ func Scrape(url, cookie, questionKey, requestType string, payload PreflightPaylo
 		if requestType != "SUBMIT" {
 			return
 		}
-		categoryKey := questionKey
 		if e.Attr("value") != "%null%" {
-			if err := model.CreateQuestion(e.Text, e.Attr("value"), categoryKey, db); err != nil {
-				log.Fatalf("Error saving question:%s", err)
+			categoryKey := questionKey
+			category, err := store.GetCategoryByCategoryKey(categoryKey)
+			if err != nil {
+				log.Fatalf("Error fetching category:%s", err)
+			}
+			question := model.CreateQuestion(e.Text, e.Attr("value"), category)
+			if err := store.CreateQuestion(question); err != nil {
+				log.Fatalf("Error creating question:%s", err)
 			}
 		}
 	})
@@ -88,10 +93,14 @@ func Scrape(url, cookie, questionKey, requestType string, payload PreflightPaylo
 		if requestType != "P30_ROWNUM" {
 			return
 		}
-		if err := model.UpdateQuestion(questionKey, e.Attr("src"), db); err != nil {
+		question, err := store.GetQuestionByQuestionKey(questionKey)
+		if err != nil {
+			log.Fatalf("Error fetching question:%s", err)
+		}
+		updatedQuestion := model.UpdateQuestion(question, &model.UpdateQuestionRequest{ImagePath: e.Attr("src")})
+		if err := store.UpdateQuestion(updatedQuestion); err != nil {
 			log.Fatalf("Error updating question:%s", err)
 		}
-
 	})
 
 	c.OnHTML("tr td[headers=RICHTIGE_ANTWORT]", func(e *colly.HTMLElement) {
@@ -100,10 +109,14 @@ func Scrape(url, cookie, questionKey, requestType string, payload PreflightPaylo
 		}
 		answerText := e.DOM.Parent().Find("td[headers=ANTWORT]").Text()
 		isCorrect := strings.Contains(e.Text, "richtige Antwort")
-		if err := model.CreateAnswer(questionKey, answerText, isCorrect, db); err != nil {
+		question, err := store.GetQuestionByQuestionKey(questionKey)
+		if err != nil {
+			log.Fatalf("Error fetching question:%s", err)
+		}
+		answer := model.CreateAnswer(answerText, isCorrect, question)
+		if err := store.CreateAnswer(answer); err != nil {
 			log.Fatalf("Error creating answer:%s", err)
 		}
-
 	})
 
 	payloadMap := map[string]string{
@@ -124,7 +137,7 @@ func Scrape(url, cookie, questionKey, requestType string, payload PreflightPaylo
 
 }
 
-func ScrapeInitialPage(url string, db *gorm.DB) (PreflightPayload, string, error) {
+func ScrapeInitialPage(url string, store *store.Store) (PreflightPayload, string, error) {
 	var cookieStr string
 	payload := &PreflightPayload{}
 
@@ -163,9 +176,8 @@ func ScrapeInitialPage(url string, db *gorm.DB) (PreflightPayload, string, error
 	})
 
 	c.OnHTML("select[name=p_t01] option", func(e *colly.HTMLElement) {
-		if err := model.CreateCategory(e.Text, e.Attr("value"), db); err != nil {
-			log.Fatalf("Error saving category:%s", err)
-		}
+		category := model.CreateCategory(e.Text, e.Attr("value"))
+		store.CreateCategory(category)
 	})
 
 	c.OnResponse(func(res *colly.Response) {

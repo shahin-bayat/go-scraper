@@ -1,111 +1,74 @@
 package model
 
 import (
-	"log"
 	"time"
-
-	"gorm.io/gorm"
 )
 
 type Category struct {
-	ID          uint `gprm:"primaryKey"`
+	ID          uint
 	Text        string
-	CategoryKey string     // 4, 5, 6, ...
-	Questions   []Question `gorm:"foreignKey:CategoryID"`
+	CategoryKey string // 4, 5, 6, ...
+	Questions   []Question
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
 
 type Question struct {
-	ID             uint `gprm:"primaryKey"`
+	ID             uint
 	CategoryID     uint
 	ImagePath      string
 	Text           *string
-	QuestionNumber string   // 1, 2, 3, ...
-	QuestionKey    string   // 1732, 1733, 1734, ...
-	IsFetched      bool     `gorm:"default:false"`
-	Answers        []Answer `gorm:"foreignKey:QuestionID"`
+	QuestionNumber string // 1, 2, 3, ...
+	QuestionKey    string // 1732, 1733, 1734, ...
+	IsFetched      bool
+	Answers        []Answer
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }
 
 type Answer struct {
-	ID         uint `gprm:"primaryKey"`
+	ID         uint
 	QuestionID uint
 	Text       string
-	IsCorrect  bool `gorm:"default:false"`
+	IsCorrect  bool
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 }
 
-func CreateCategory(text, categoryKey string, db *gorm.DB) error {
+type UpdateQuestionRequest struct {
+	ImagePath string
+}
+
+func CreateCategory(text, categoryKey string) *Category {
 	modelCategory := Category{
 		Text:        text,
 		CategoryKey: categoryKey,
 	}
-	result := db.FirstOrCreate(&modelCategory, Category{CategoryKey: categoryKey})
-	if result.Error != nil {
-		return result.Error
-	}
-	return nil
+
+	return &modelCategory
 }
 
-func CreateQuestion(questionNumber, questionKey, categoryKey string, db *gorm.DB) error {
-	var categoryId uint
-	result := db.Model(&Category{}).Where("category_key = ?", categoryKey).Select("id").Find(&categoryId)
-	if result.Error != nil {
-		log.Fatalf("Error fetching category id:%s", result.Error)
-		return result.Error
-	}
-
+func CreateQuestion(questionNumber, questionKey string, category *Category) *Question {
 	modelQuestion := Question{
 		QuestionNumber: questionNumber,
 		QuestionKey:    questionKey,
-		CategoryID:     categoryId,
+		CategoryID:     category.ID,
 	}
-	result = db.FirstOrCreate(&modelQuestion, Question{QuestionKey: questionKey})
-	if result.Error != nil {
-		log.Fatalf("Error creating question:%s", result.Error)
-		return result.Error
-	}
-
-	return nil
+	return &modelQuestion
 }
 
-func UpdateQuestion(questionKey, imagePath string, db *gorm.DB) error {
-	result := db.Model(&Question{}).Where("question_key = ?", questionKey).Update("image_path", imagePath)
-	if result.Error != nil {
-		log.Fatalf("Error updating question image path:%s", result.Error)
-		return result.Error
+func UpdateQuestion(question *Question, updateQuestionRequest *UpdateQuestionRequest) *Question {
+	if updateQuestionRequest.ImagePath != "" {
+		question.ImagePath = updateQuestionRequest.ImagePath
 	}
-	return nil
+	return question
 }
 
-func CreateAnswer(questionKey, text string, isCorrect bool, db *gorm.DB) error {
-	var questionId uint
-	result := db.Model(&Question{}).Where("question_key = ?", questionKey).Select("id").Find(&questionId)
-	if result.Error != nil {
-		log.Fatalf("Error fetching question id:%s", result.Error)
-		return result.Error
-	}
-
+func CreateAnswer(text string, isCorrect bool, question *Question) *Answer {
 	modelAnswer := Answer{
-		QuestionID: questionId,
 		Text:       text,
 		IsCorrect:  isCorrect,
+		QuestionID: question.ID,
 	}
-	result = db.Create(&modelAnswer)
-	if result.Error != nil {
-		log.Fatalf("Error creating answer:%s", result.Error)
-		return result.Error
-	}
-
-	// update questions set is_fetched = true where question_key = questionKey
-	result = db.Model(&Question{}).Where("question_key = ?", questionKey).Update("is_fetched", true)
-	if result.Error != nil {
-		log.Fatalf("Error updating question is_fetched:%s", result.Error)
-		return result.Error
-	}
-
-	return nil
+	return &modelAnswer
 }
