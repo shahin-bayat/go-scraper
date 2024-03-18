@@ -117,6 +117,10 @@ func Scrape(url, cookie, questionKey, requestType string, payload PreflightPaylo
 		if err := store.CreateAnswer(answer); err != nil {
 			log.Fatalf("Error creating answer:%s", err)
 		}
+		updatedQuestion := model.UpdateQuestion(question, &model.UpdateQuestionRequest{IsFetched: true})
+		if err := store.UpdateQuestion(updatedQuestion); err != nil {
+			log.Fatalf("Error updating question:%s", err)
+		}
 	})
 
 	payloadMap := map[string]string{

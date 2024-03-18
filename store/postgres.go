@@ -159,7 +159,7 @@ func (s *Store) GetQuestionByQuestionKey(questionKey string) (*model.Question, e
 
 func (s *Store) GetQuestionsByCategoryId(categoryId uint) ([]model.Question, error) {
 	var questions []model.Question
-	query := `SELECT * FROM questions WHERE category_id = $1`
+	query := `SELECT * FROM questions WHERE category_id = $1 AND is_fetched = FALSE`
 	rows, err := s.db.Query(query, categoryId)
 	if err != nil {
 		return nil, err

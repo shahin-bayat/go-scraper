@@ -37,6 +37,7 @@ type Answer struct {
 
 type UpdateQuestionRequest struct {
 	ImagePath string
+	IsFetched bool
 }
 
 func CreateCategory(text, categoryKey string) *Category {
@@ -61,6 +62,10 @@ func UpdateQuestion(question *Question, updateQuestionRequest *UpdateQuestionReq
 	if updateQuestionRequest.ImagePath != "" {
 		question.ImagePath = updateQuestionRequest.ImagePath
 	}
+	if updateQuestionRequest.IsFetched {
+		question.IsFetched = updateQuestionRequest.IsFetched
+	}
+
 	return question
 }
 
