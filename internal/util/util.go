@@ -2,6 +2,7 @@ package util
 
 import (
 	"log"
+	"math/rand"
 	"os"
 
 	"github.com/joho/godotenv"
@@ -17,4 +18,9 @@ func GetEnvVariable(key string) string {
 	}
 
 	return os.Getenv(key)
+}
+
+func GenerateRandomDelay(minMs uint, maxMs uint) uint {
+	randomDelayMs := minMs + uint(rand.Intn(int(maxMs-minMs+1)))
+	return randomDelayMs
 }

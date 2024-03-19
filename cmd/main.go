@@ -63,8 +63,9 @@ func main() {
 		log.Fatalf(err.Error())
 	}
 
-	for i := 0; i <= 1; i++ {
-		time.Sleep(3 * time.Second)
+	for i := 0; i <= 2; i++ {
+		delay := time.Duration(util.GenerateRandomDelay(1500, 3000)) * time.Millisecond
+		time.Sleep(delay)
 		question := questions[i]
 		payload, err = request.Scrape(mainUrl, cookie, question.QuestionKey, "P30_ROWNUM", payload, store)
 		if err != nil {
