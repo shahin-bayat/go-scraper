@@ -14,5 +14,5 @@ How to Start?
 2. Run the server
 
 ```bash
-  // go run main.go
+  make run
 ```
