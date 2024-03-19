@@ -82,8 +82,8 @@ func Scrape(url, cookie, questionKey, requestType string, payload PreflightPaylo
 			if err != nil {
 				log.Fatalf("Error fetching category:%s", err)
 			}
-			question := model.CreateQuestion(e.Text, e.Attr("value"), category)
-			if err := store.CreateQuestion(question); err != nil {
+			question := model.CreateQuestion(e.Text, e.Attr("value"))
+			if err := store.CreateQuestion(question, category); err != nil {
 				log.Fatalf("Error creating question:%s", err)
 			}
 		}

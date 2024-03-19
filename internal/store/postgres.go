@@ -57,7 +57,6 @@ func (s *Store) createCategoryTable() error {
 func (s *Store) createQuestionTable() error {
 	query := `CREATE TABLE IF NOT EXISTS questions (
 		id SERIAL PRIMARY KEY,
-		category_id INTEGER NOT NULL REFERENCES categories(id),
 		image_path VARCHAR(255),
 		text VARCHAR(255),
 		question_number VARCHAR(50) NOT NULL,
@@ -71,6 +70,21 @@ func (s *Store) createQuestionTable() error {
 	_, err := s.db.ExecContext(ctx, query)
 	return err
 }
+
+func (s *Store) createCategoryQuestionsTable() error {
+	query := `CREATE TABLE IF NOT EXISTS category_questions(
+		id SERIAL PRIMARY KEY,
+		category_id INTEGER NOT NULL REFERENCES categories(id),
+		question_id INTEGER NOT NULL REFERENCES questions(id),
+		created_at TIMEStAMP DEFAULT CURRENT_TIMESTAMP,
+		updated_at TIMEStAMP DEFAULT CURRENT_TIMESTAMP
+	)`
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_, err := s.db.ExecContext(ctx, query)
+	return err
+}
+
 func (s *Store) createAnswerTable() error {
 	query := `CREATE TABLE IF NOT EXISTS answers (
 		id SERIAL PRIMARY KEY,
@@ -94,6 +108,9 @@ func (s *Store) Init() error {
 		return err
 	}
 	if err := s.createAnswerTable(); err != nil {
+		return err
+	}
+	if err := s.createCategoryQuestionsTable(); err != nil {
 		return err
 	}
 	return nil
@@ -156,12 +173,31 @@ func (s *Store) GetCategoryByText(text string) (*model.Category, error) {
 	return &category, nil
 }
 
-func (s *Store) CreateQuestion(question *model.Question) error {
-	query := `INSERT INTO questions (category_id, image_path, text, question_number, question_key) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (question_key) DO NOTHING`
+func (s *Store) CreateQuestion(question *model.Question, category *model.Category) error {
+	createQuestionQuery := `INSERT INTO questions (image_path, text, question_number, question_key) VALUES ($1, $2, $3, $4) ON CONFLICT (question_key) DO NOTHING`
+	associateQuestionQuery := `INSERT INTO category_questions (category_id, question_id) VALUES ($1, $2)`
+	lastQuestionInsertedQuery := `SELECT id FROM questions WHERE question_key = $1`
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	_, err := s.db.ExecContext(ctx, query, question.CategoryID, question.ImagePath, question.Text, question.QuestionNumber, question.QuestionKey)
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var questionId uint
+	_, err = s.db.ExecContext(ctx, createQuestionQuery, question.ImagePath, question.Text, question.QuestionNumber, question.QuestionKey)
+	if err != nil {
+		return err
+	}
+	err = s.db.QueryRowContext(ctx, lastQuestionInsertedQuery, question.QuestionKey).Scan(&questionId)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.ExecContext(ctx, associateQuestionQuery, category.ID, questionId)
+	if err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
 		return err
 	}
 	return nil
@@ -172,7 +208,7 @@ func (s *Store) GetQuestionByQuestionKey(questionKey string) (*model.Question, e
 	query := `SELECT * FROM questions WHERE question_key = $1`
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	err := s.db.QueryRowContext(ctx, query, questionKey).Scan(&question.ID, &question.CategoryID, &question.ImagePath, &question.Text, &question.QuestionNumber, &question.QuestionKey, &question.IsFetched, &question.CreatedAt, &question.UpdatedAt)
+	err := s.db.QueryRowContext(ctx, query, questionKey).Scan(&question.ID, &question.ImagePath, &question.Text, &question.QuestionNumber, &question.QuestionKey, &question.IsFetched, &question.CreatedAt, &question.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +217,7 @@ func (s *Store) GetQuestionByQuestionKey(questionKey string) (*model.Question, e
 
 func (s *Store) GetQuestionsByCategoryId(categoryId uint) ([]model.Question, error) {
 	var questions []model.Question
-	query := `SELECT * FROM questions WHERE category_id = $1 AND is_fetched = FALSE`
+	query := `SELECT q.id, q.image_path, q.text, q.question_number, q.question_key, q.is_fetched, q.created_at, q.updated_at  FROM category_questions AS cq JOIN questions AS q ON q.id = cq.question_id WHERE cq.category_id = $1 AND q.is_fetched = FALSE`
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	rows, err := s.db.QueryContext(ctx, query, categoryId)
@@ -191,7 +227,7 @@ func (s *Store) GetQuestionsByCategoryId(categoryId uint) ([]model.Question, err
 	defer rows.Close()
 	for rows.Next() {
 		var question model.Question
-		err := rows.Scan(&question.ID, &question.CategoryID, &question.ImagePath, &question.Text, &question.QuestionNumber, &question.QuestionKey, &question.IsFetched, &question.CreatedAt, &question.UpdatedAt)
+		err := rows.Scan(&question.ID, &question.ImagePath, &question.Text, &question.QuestionNumber, &question.QuestionKey, &question.IsFetched, &question.CreatedAt, &question.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}

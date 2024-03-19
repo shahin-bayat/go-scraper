@@ -47,7 +47,7 @@ func main() {
 	// STEP 2: Fetch questions (key and number)
 	payload, err = request.Scrape(mainUrl, cookie, categoryKey, "SUBMIT", payload, store)
 	if err != nil {
-		panic(err)
+		log.Fatalf(err.Error())
 	}
 
 	// TODO: loop through categories and fetch questions
@@ -68,7 +68,7 @@ func main() {
 		question := questions[i]
 		payload, err = request.Scrape(mainUrl, cookie, question.QuestionKey, "P30_ROWNUM", payload, store)
 		if err != nil {
-			panic(err)
+			log.Fatalf(err.Error())
 		}
 	}
 
@@ -78,7 +78,7 @@ func main() {
 	// 	question := questions[i]
 	// 	payload, err = request.Scrape(mainUrl, cookie, question.QuestionKey, "P30_ROWNUM", payload, store)
 	// 	if err != nil {
-	// 		panic(err)
+	// 		log.Fatalf(err.Error())
 	// 	}
 	// }
 

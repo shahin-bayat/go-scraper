@@ -15,7 +15,6 @@ type Category struct {
 
 type Question struct {
 	ID             uint
-	CategoryID     uint
 	ImagePath      string
 	Text           *string
 	QuestionNumber string // 1, 2, 3, ...
@@ -49,11 +48,10 @@ func CreateCategory(text, categoryKey string) *Category {
 	return &modelCategory
 }
 
-func CreateQuestion(questionNumber, questionKey string, category *Category) *Question {
+func CreateQuestion(questionNumber, questionKey string) *Question {
 	modelQuestion := Question{
 		QuestionNumber: questionNumber,
 		QuestionKey:    questionKey,
-		CategoryID:     category.ID,
 	}
 	return &modelQuestion
 }
