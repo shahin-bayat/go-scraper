@@ -1,6 +1,7 @@
 package request
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -79,12 +80,28 @@ func Scrape(url, cookie, questionKey, requestType string, payload PreflightPaylo
 		if e.Attr("value") != "%null%" {
 			categoryKey := questionKey
 			category, err := store.GetCategoryByCategoryKey(categoryKey)
-			if err != nil {
+			if err != nil && !errors.Is(err, store.ErrNoRows) {
 				log.Fatalf("Error fetching category:%s", err)
 			}
-			question := model.CreateQuestion(e.Text, e.Attr("value"))
-			if err := store.CreateQuestion(question, category); err != nil {
-				log.Fatalf("Error creating question:%s", err)
+
+			existingQuestion, err := store.GetQuestionByQuestionKey(e.Attr("value"))
+			if err != nil && !errors.Is(err, store.ErrNoRows) {
+				log.Fatalf("Error fetching question:%s", err)
+			}
+
+			if existingQuestion == nil {
+				question := model.CreateQuestion(e.Text, e.Attr("value"))
+				questionId, err := store.CreateQuestion(question, category)
+				if err != nil {
+					log.Fatalf("Error creating question:%s", err)
+				}
+				if err = store.AssociateQuestionWithCategory(category, questionId); err != nil {
+					log.Fatalf("Error associating question with category:%s", err)
+				}
+			} else {
+				if err := store.AssociateQuestionWithCategory(category, existingQuestion.ID); err != nil {
+					log.Fatalf("Error associating question with category:%s", err)
+				}
 			}
 		}
 	})
@@ -94,7 +111,7 @@ func Scrape(url, cookie, questionKey, requestType string, payload PreflightPaylo
 			return
 		}
 		question, err := store.GetQuestionByQuestionKey(questionKey)
-		if err != nil {
+		if err != nil && !errors.Is(err, store.ErrNoRows) {
 			log.Fatalf("Error fetching question:%s", err)
 		}
 		updatedQuestion := model.UpdateQuestion(question, &model.UpdateQuestionRequest{ImagePath: e.Attr("src")})
@@ -110,7 +127,7 @@ func Scrape(url, cookie, questionKey, requestType string, payload PreflightPaylo
 		answerText := e.DOM.Parent().Find("td[headers=ANTWORT]").Text()
 		isCorrect := strings.Contains(e.Text, "richtige Antwort")
 		question, err := store.GetQuestionByQuestionKey(questionKey)
-		if err != nil {
+		if err != nil && !errors.Is(err, store.ErrNoRows) {
 			log.Fatalf("Error fetching question:%s", err)
 		}
 		answer := model.CreateAnswer(answerText, isCorrect, question)

@@ -13,7 +13,8 @@ import (
 )
 
 type Store struct {
-	db *sql.DB
+	db        *sql.DB
+	ErrNoRows error
 }
 
 func NewPostgresStore() (*Store, error) {
@@ -37,7 +38,7 @@ func NewPostgresStore() (*Store, error) {
 		return nil, errors.New("failed to ping database: " + err.Error())
 	}
 
-	return &Store{db: db}, nil
+	return &Store{db: db, ErrNoRows: sql.ErrNoRows}, nil
 }
 
 func (s *Store) createCategoryTable() error {
@@ -77,7 +78,8 @@ func (s *Store) createCategoryQuestionsTable() error {
 		category_id INTEGER NOT NULL REFERENCES categories(id),
 		question_id INTEGER NOT NULL REFERENCES questions(id),
 		created_at TIMEStAMP DEFAULT CURRENT_TIMESTAMP,
-		updated_at TIMEStAMP DEFAULT CURRENT_TIMESTAMP
+		updated_at TIMEStAMP DEFAULT CURRENT_TIMESTAMP,
+		CONSTRAINT unique_category_question UNIQUE (category_id, question_id)
 	)`
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -173,31 +175,32 @@ func (s *Store) GetCategoryByText(text string) (*model.Category, error) {
 	return &category, nil
 }
 
-func (s *Store) CreateQuestion(question *model.Question, category *model.Category) error {
+func (s *Store) CreateQuestion(question *model.Question, category *model.Category) (uint, error) {
 	createQuestionQuery := `INSERT INTO questions (image_path, text, question_number, question_key) VALUES ($1, $2, $3, $4) ON CONFLICT (question_key) DO NOTHING`
-	associateQuestionQuery := `INSERT INTO category_questions (category_id, question_id) VALUES ($1, $2)`
+
 	lastQuestionInsertedQuery := `SELECT id FROM questions WHERE question_key = $1`
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
+
 	var questionId uint
-	_, err = s.db.ExecContext(ctx, createQuestionQuery, question.ImagePath, question.Text, question.QuestionNumber, question.QuestionKey)
+	_, err := s.db.ExecContext(ctx, createQuestionQuery, question.ImagePath, question.Text, question.QuestionNumber, question.QuestionKey)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	err = s.db.QueryRowContext(ctx, lastQuestionInsertedQuery, question.QuestionKey).Scan(&questionId)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	_, err = s.db.ExecContext(ctx, associateQuestionQuery, category.ID, questionId)
+
+	return questionId, nil
+}
+
+func (s *Store) AssociateQuestionWithCategory(category *model.Category, questionId uint) error {
+	query := `INSERT INTO category_questions (category_id, question_id) VALUES ($1, $2) ON CONFLICT (category_id, question_id) DO NOTHING`
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_, err := s.db.ExecContext(ctx, query, category.ID, questionId)
 	if err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return err
 	}
 	return nil

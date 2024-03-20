@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"log"
 	"time"
 
@@ -36,7 +37,7 @@ func main() {
 
 	// TODO: for debugging purposes only, delete later
 	category, err := store.GetCategoryByText("Bayern")
-	if err != nil {
+	if err != nil && !errors.Is(err, store.ErrNoRows) {
 		log.Fatalf(err.Error())
 	}
 
@@ -55,10 +56,10 @@ func main() {
 
 	// STEP 3: Loop through questions and fetch answers
 	questions, err := store.GetQuestionsByCategoryId(category.ID)
-	if err != nil {
+	if err != nil && !errors.Is(err, store.ErrNoRows) {
 		log.Fatalf(err.Error())
 	}
-	for i := 0; i <= 2; i++ {
+	for i := 0; i <= 1; i++ {
 		delay := time.Duration(util.GenerateRandomDelay(1500, 3000)) * time.Millisecond
 		time.Sleep(delay)
 		question := questions[i]
