@@ -16,3 +16,7 @@ How to Start?
 ```bash
   make run
 ```
+Entity relationship diagrams (ERD):
+
+![image](https://github.com/shahin-bayat/go-scraper/assets/51708006/cc8145e8-6f0c-4cd8-bdf2-868810caf33f)
+
