@@ -236,7 +236,7 @@ func (s *Store) GetQuestionsByCategoryId(categoryId uint) ([]model.Question, err
 	return questions, nil
 }
 
-func (s *Store) UpdateQuestion(question *model.Question) error {
+func (s *Store) UpdateQuestion(questionId uint, question *model.Question) error {
 	query := `UPDATE questions SET image_path = $1, is_fetched = $2 WHERE id = $3`
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

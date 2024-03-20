@@ -98,7 +98,7 @@ func Scrape(url, cookie, questionKey, requestType string, payload PreflightPaylo
 			log.Fatalf("Error fetching question:%s", err)
 		}
 		updatedQuestion := model.UpdateQuestion(question, &model.UpdateQuestionRequest{ImagePath: e.Attr("src")})
-		if err := store.UpdateQuestion(updatedQuestion); err != nil {
+		if err := store.UpdateQuestion(question.ID, updatedQuestion); err != nil {
 			log.Fatalf("Error updating question:%s", err)
 		}
 	})
@@ -118,7 +118,7 @@ func Scrape(url, cookie, questionKey, requestType string, payload PreflightPaylo
 			log.Fatalf("Error creating answer:%s", err)
 		}
 		updatedQuestion := model.UpdateQuestion(question, &model.UpdateQuestionRequest{IsFetched: true})
-		if err := store.UpdateQuestion(updatedQuestion); err != nil {
+		if err := store.UpdateQuestion(question.ID, updatedQuestion); err != nil {
 			log.Fatalf("Error updating question:%s", err)
 		}
 	})

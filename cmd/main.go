@@ -13,23 +13,20 @@ import (
 
 func main() {
 	var cookie string
-	// var categories []model.Category
-	// var questions []model.Question
-	var _ map[string]string
 	var payload request.PreflightPayload
 	var err error
 
+	var initialUrl = util.GetEnvVariable("INITIAL_URL")
+	var mainUrl = util.GetEnvVariable("MAIN_URL")
+
+	// Init DB
 	store, err := store.NewPostgresStore()
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
-
 	if err = store.Init(); err != nil {
 		log.Fatalf(err.Error())
 	}
-
-	initialUrl := util.GetEnvVariable("INITIAL_URL")
-	mainUrl := util.GetEnvVariable("MAIN_URL")
 
 	// STEP 1. Fetch cookie and Categories
 	payload, cookie, err = request.ScrapeInitialPage(initialUrl, store)
@@ -42,10 +39,9 @@ func main() {
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
-	categoryKey := category.CategoryKey
 
 	// STEP 2: Fetch questions (key and number)
-	payload, err = request.Scrape(mainUrl, cookie, categoryKey, "SUBMIT", payload, store)
+	payload, err = request.Scrape(mainUrl, cookie, category.CategoryKey, "SUBMIT", payload, store)
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
@@ -62,7 +58,6 @@ func main() {
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
-
 	for i := 0; i <= 2; i++ {
 		delay := time.Duration(util.GenerateRandomDelay(1500, 3000)) * time.Millisecond
 		time.Sleep(delay)
