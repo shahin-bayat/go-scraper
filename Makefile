@@ -10,7 +10,3 @@ run: build
 
 test:
 	@go test -v ./...
-
-# Add a seed target
-seed: build
-	@$(BUILD_DIR)/$(APP_NAME) --seed

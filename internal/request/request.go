@@ -24,7 +24,6 @@ type PreflightPayload struct {
 }
 
 func Scrape(url, cookie, questionKey, requestType string, payload PreflightPayload, store *store.Store) (PreflightPayload, error) {
-
 	var responsePayload = &PreflightPayload{}
 
 	c := colly.NewCollector()
@@ -38,11 +37,10 @@ func Scrape(url, cookie, questionKey, requestType string, payload PreflightPaylo
 		SetHeaders(req, &headers)
 	})
 
-	// TODO: DEBUG PURPOSES ONLY - DELETE LATER
 	c.OnResponse(func(res *colly.Response) {
 		if requestType != "SUBMIT" {
 			fmt.Printf("question key %v: response received\n", questionKey)
-			os.WriteFile(questionKey+".html", res.Body, 0644)
+			os.WriteFile("web/"+questionKey+".html", res.Body, 0644)
 		}
 	})
 
@@ -99,6 +97,13 @@ func Scrape(url, cookie, questionKey, requestType string, payload PreflightPaylo
 					log.Fatalf("Error associating question with category:%s", err)
 				}
 			} else {
+				isAssociated, err := store.IsQuestionAssociatedWithCategory(category.ID, existingQuestion.ID)
+				if err != nil && !errors.Is(err, store.ErrNoRows) {
+					log.Fatalf("Error fetching question:%s", err)
+				}
+				if isAssociated {
+					return
+				}
 				if err := store.AssociateQuestionWithCategory(category, existingQuestion.ID); err != nil {
 					log.Fatalf("Error associating question with category:%s", err)
 				}
@@ -130,13 +135,29 @@ func Scrape(url, cookie, questionKey, requestType string, payload PreflightPaylo
 		if err != nil && !errors.Is(err, store.ErrNoRows) {
 			log.Fatalf("Error fetching question:%s", err)
 		}
+		isFetched, err := store.IsQuestionFetched(question.ID)
+		if err != nil && !errors.Is(err, store.ErrNoRows) {
+			log.Fatalf("Error fetching question:%s", err)
+		}
+		if isFetched {
+			return
+		}
+
 		answer := model.CreateAnswer(answerText, isCorrect, question)
 		if err := store.CreateAnswer(answer); err != nil {
 			log.Fatalf("Error creating answer:%s", err)
 		}
-		updatedQuestion := model.UpdateQuestion(question, &model.UpdateQuestionRequest{IsFetched: true})
-		if err := store.UpdateQuestion(question.ID, updatedQuestion); err != nil {
-			log.Fatalf("Error updating question:%s", err)
+
+		// isFetched = true if there are 4 answers
+		answers, err := store.GetAnswersByQuestionId(question.ID)
+		if err != nil && !errors.Is(err, store.ErrNoRows) {
+			log.Fatalf("Error fetching answers:%s", err)
+		}
+		if len(answers) == 4 {
+			updatedQuestion := model.UpdateQuestion(question, &model.UpdateQuestionRequest{IsFetched: true})
+			if err := store.UpdateQuestion(question.ID, updatedQuestion); err != nil {
+				log.Fatalf("Error updating question:%s", err)
+			}
 		}
 	})
 
@@ -160,7 +181,7 @@ func Scrape(url, cookie, questionKey, requestType string, payload PreflightPaylo
 
 func ScrapeInitialPage(url string, store *store.Store) (PreflightPayload, string, error) {
 	var cookieStr string
-	payload := &PreflightPayload{}
+	responsePayload := &PreflightPayload{}
 
 	c := colly.NewCollector()
 
@@ -178,21 +199,21 @@ func ScrapeInitialPage(url string, store *store.Store) (PreflightPayload, string
 		value := e.Attr("value")
 		switch name {
 		case "p_flow_id":
-			payload.p_flow_id = value
+			responsePayload.p_flow_id = value
 		case "p_flow_step_id":
-			payload.p_flow_step_id = value
+			responsePayload.p_flow_step_id = value
 		case "p_instance":
-			payload.p_instance = value
+			responsePayload.p_instance = value
 		case "p_page_submission_id":
-			payload.p_page_submission_id = value
+			responsePayload.p_page_submission_id = value
 		case "p_request":
-			payload.p_request = "SUBMIT"
+			responsePayload.p_request = "SUBMIT"
 		case "p_arg_names":
-			payload.p_arg_names = value
+			responsePayload.p_arg_names = value
 		case "p_md5_checksum":
-			payload.p_md5_checksum = value
+			responsePayload.p_md5_checksum = value
 		case "p_page_checksum":
-			payload.p_page_checksum = value
+			responsePayload.p_page_checksum = value
 		}
 	})
 
@@ -210,5 +231,5 @@ func ScrapeInitialPage(url string, store *store.Store) (PreflightPayload, string
 	})
 
 	c.Visit(url)
-	return *payload, cookieStr, nil
+	return *responsePayload, cookieStr, nil
 }

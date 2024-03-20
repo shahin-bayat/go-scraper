@@ -196,7 +196,7 @@ func (s *Store) CreateQuestion(question *model.Question, category *model.Categor
 }
 
 func (s *Store) AssociateQuestionWithCategory(category *model.Category, questionId uint) error {
-	query := `INSERT INTO category_questions (category_id, question_id) VALUES ($1, $2) ON CONFLICT (category_id, question_id) DO NOTHING`
+	query := `INSERT INTO category_questions (category_id, question_id) VALUES ($1, $2)`
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_, err := s.db.ExecContext(ctx, query, category.ID, questionId)
@@ -259,4 +259,49 @@ func (s *Store) CreateAnswer(answer *model.Answer) error {
 		return err
 	}
 	return nil
+}
+
+func (s *Store) IsQuestionFetched(questionId uint) (bool, error) {
+	var isFetched bool
+	query := `SELECT is_fetched FROM questions WHERE id = $1`
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	err := s.db.QueryRowContext(ctx, query, questionId).Scan(&isFetched)
+	if err != nil {
+		return false, err
+	}
+	return isFetched, nil
+}
+
+func (s *Store) GetAnswersByQuestionId(questionId uint) ([]model.Answer, error) {
+	var answers []model.Answer
+	query := `SELECT * FROM answers WHERE question_id = $1`
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	rows, err := s.db.QueryContext(ctx, query, questionId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var answer model.Answer
+		err := rows.Scan(&answer.ID, &answer.QuestionID, &answer.Text, &answer.IsCorrect, &answer.CreatedAt, &answer.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+		answers = append(answers, answer)
+	}
+	return answers, nil
+}
+
+func (s *Store) IsQuestionAssociatedWithCategory(categoryId, questionId uint) (bool, error) {
+	var isAssociated bool
+	query := `SELECT EXISTS(SELECT 1 FROM category_questions WHERE category_id = $1 AND question_id = $2)`
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	err := s.db.QueryRowContext(ctx, query, categoryId, questionId).Scan(&isAssociated)
+	if err != nil {
+		return false, err
+	}
+	return isAssociated, nil
 }
