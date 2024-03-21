@@ -1,4 +1,5 @@
 
 *.html
 bin/
+backup/
 .env
