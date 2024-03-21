@@ -18,5 +18,6 @@ How to Start?
 ```
 Entity relationship diagrams (ERD):
 
-![image](https://github.com/shahin-bayat/go-scraper/assets/51708006/cc8145e8-6f0c-4cd8-bdf2-868810caf33f)
+![image](https://github.com/shahin-bayat/go-scraper/assets/51708006/7051dc61-7b4f-4880-9429-efada2ac7d8e)
+
 
