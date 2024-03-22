@@ -60,7 +60,6 @@ func main() {
 
 	// STEP 6: loop through questions and set answers
 	for i := range questions {
-		time.Sleep(3 * time.Second)
 		delay := time.Duration(util.GenerateRandomDelay(1500, 3000)) * time.Millisecond
 		time.Sleep(delay)
 		question := questions[i]

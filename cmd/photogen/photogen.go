@@ -26,7 +26,6 @@ func main() {
 	}
 
 	for _, question := range questions {
-		time.Sleep(3 * time.Second)
 		delay := time.Duration(util.GenerateRandomDelay(1500, 3000)) * time.Millisecond
 		time.Sleep(delay)
 		request.SaveImage(imageBaseUrl+question.ImagePath, question.QuestionKey, question.ID, store)
