@@ -359,3 +359,49 @@ func (s *Store) CreateImage(image *model.Image) error {
 	}
 	return nil
 }
+
+func (s *Store) GetImages() ([]*model.Image, error) {
+	query := `SELECT * FROM images WHERE extracted_text IS NULL ORDER BY id ASC`
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	rows, err := s.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var images []*model.Image
+	for rows.Next() {
+		var image model.Image
+		err := rows.Scan(&image.ID, &image.QuestionID, &image.HasImage, &image.Filename, &image.CreatedAt, &image.UpdatedAt, &image.ExtractedText)
+		if err != nil {
+			return nil, err
+		}
+		images = append(images, &image)
+	}
+	return images, nil
+
+}
+
+func (s *Store) GetImageByFilename(filename string) (*model.Image, error) {
+	var image model.Image
+	query := `SELECT * FROM images WHERE file_name = $1`
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	err := s.db.QueryRowContext(ctx, query, filename).Scan(&image.ID, &image.QuestionID, &image.HasImage, &image.Filename, &image.CreatedAt, &image.UpdatedAt, &image.ExtractedText)
+	if err != nil {
+		return nil, err
+	}
+	return &image, nil
+}
+
+func (s *Store) UpdateImage(imageId uint, image *model.Image) error {
+	query := `UPDATE images SET extracted_text = $1, has_image = $2 WHERE id = $3`
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_, err := s.db.ExecContext(ctx, query, image.ExtractedText, image.HasImage, imageId)
+	if err != nil {
+		return err
+	}
+	return nil
+
+}

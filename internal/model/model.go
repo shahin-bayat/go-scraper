@@ -36,7 +36,7 @@ type Image struct {
 	ID            uint
 	QuestionID    uint
 	HasImage      bool
-	ExtractedText string
+	ExtractedText *string
 	Filename      string
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
@@ -45,6 +45,11 @@ type Image struct {
 type UpdateQuestionRequest struct {
 	ImagePath string
 	IsFetched bool
+}
+
+type UpdateImageRequest struct {
+	HasImage      bool
+	ExtractedText *string
 }
 
 func CreateCategory(text, categoryKey string) *Category {
@@ -90,4 +95,15 @@ func CreateImage(questionId uint, filename string) *Image {
 		Filename:   filename,
 	}
 	return &modelImage
+}
+
+func UpdateImage(image *Image, updateImageRequest *UpdateImageRequest) *Image {
+	if updateImageRequest.HasImage {
+		image.HasImage = updateImageRequest.HasImage
+	}
+	if updateImageRequest.ExtractedText != nil {
+		image.ExtractedText = updateImageRequest.ExtractedText
+	}
+
+	return image
 }

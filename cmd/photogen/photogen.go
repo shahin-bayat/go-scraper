@@ -33,4 +33,5 @@ func main() {
 		fmt.Printf("Question key %v fetched\n", question.QuestionKey)
 	}
 
+	store.Close()
 }

@@ -4,10 +4,14 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"image"
 	"io"
 	"log"
 	"math/rand"
 	"os"
+	"strings"
+
+	_ "image/png"
 
 	"github.com/joho/godotenv"
 )
@@ -37,5 +41,14 @@ func ConvertToBase64(data []byte, contentType string) (string, error) {
 	base64Encoded := base64.StdEncoding.EncodeToString(data)
 	formattedBase64 := fmt.Sprintf("data:%s;base64,%s", contentType, base64Encoded)
 	return formattedBase64, nil
+}
 
+func HasImage(base64Img string) (bool, error) {
+	reader := base64.NewDecoder(base64.StdEncoding, strings.NewReader(base64Img))
+
+	config, _, err := image.DecodeConfig(reader)
+	if err != nil {
+		return false, err
+	}
+	return config.Height > 100, nil
 }
