@@ -59,7 +59,8 @@ func main() {
 	}
 
 	// STEP 6: loop through questions and set answers
-	for i := 0; i <= 1; i++ {
+	for i := range questions {
+		time.Sleep(3 * time.Second)
 		delay := time.Duration(util.GenerateRandomDelay(1500, 3000)) * time.Millisecond
 		time.Sleep(delay)
 		question := questions[i]
@@ -69,15 +70,8 @@ func main() {
 		}
 	}
 
-	// for i := range questions {
-	// 	time.Sleep(3 * time.Second)
-	// delay := time.Duration(util.GenerateRandomDelay(1500, 3000)) * time.Millisecond
-	// time.Sleep(delay)
-	// 	question := questions[i]
-	// 	payload, err = request.Scrape(mainUrl, cookie, question.QuestionKey, "P30_ROWNUM", payload, store)
-	// 	if err != nil {
-	// 		log.Fatalf(err.Error())
-	// 	}
-	// }
+	if err = store.Close(); err != nil {
+		log.Fatalf(err.Error())
+	}
 
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/gocolly/colly"
 	"github.com/shahin-bayat/go-scraper/internal/model"
 	"github.com/shahin-bayat/go-scraper/internal/store"
+	"github.com/shahin-bayat/go-scraper/internal/util"
 )
 
 type PreflightPayload struct {
@@ -191,7 +192,6 @@ func ScrapeInitialPage(url string, store *store.Store) (PreflightPayload, string
 
 	c.OnRequest(func(req *colly.Request) {
 		SetHeaders(req, &headers)
-
 	})
 
 	c.OnHTML("input[type=hidden]", func(e *colly.HTMLElement) {
@@ -232,4 +232,42 @@ func ScrapeInitialPage(url string, store *store.Store) (PreflightPayload, string
 
 	c.Visit(url)
 	return *responsePayload, cookieStr, nil
+}
+
+func SaveImage(imageUrl, questionKey string, questionId uint, store *store.Store) (string, error) {
+	c := colly.NewCollector()
+	var base64Encoded string
+
+	var headers map[string]string = map[string]string{
+		"User-Agent": UserAgent,
+	}
+
+	c.OnRequest(func(req *colly.Request) {
+		SetHeaders(req, &headers)
+	})
+
+	c.OnResponse(func(res *colly.Response) {
+		var err error
+		filename := questionKey + ".png"
+		os.WriteFile("assets/images/"+filename, res.Body, 0644)
+
+		contentType := res.Headers.Get("Content-Type")
+		base64Encoded, err = util.ConvertToBase64(res.Body, contentType)
+		if err != nil {
+			log.Fatalf("Error converting image to base64:%s", err)
+		}
+		os.WriteFile("assets/base64/"+questionKey+".txt", []byte(base64Encoded), 0644)
+
+		image := model.CreateImage(questionId, filename)
+		if err := store.CreateImage(image); err != nil {
+			log.Fatalf("Error creating image:%s", err)
+		}
+	})
+	c.OnError(func(r *colly.Response, e error) {
+		log.Fatalf("Oops, an error occurred!:%s", e)
+	})
+
+	c.Visit(imageUrl)
+
+	return base64Encoded, nil
 }

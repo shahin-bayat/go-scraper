@@ -102,6 +102,22 @@ func (s *Store) createAnswerTable() error {
 	return err
 }
 
+func (s *Store) createImageTable() error {
+	query := `CREATE TABLE IF NOT EXISTS images (
+		id SERIAL PRIMARY KEY,
+		question_id	INTEGER NOT NULL REFERENCES questions(id),
+		has_image BOOLEAN DEFAULT FALSE,
+		extracted_text TEXT,
+		file_name VARCHAR(255) NOT NULL,
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+	)`
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_, err := s.db.ExecContext(ctx, query)
+	return err
+}
+
 func (s *Store) Init() error {
 	if err := s.createCategoryTable(); err != nil {
 		return err
@@ -113,6 +129,9 @@ func (s *Store) Init() error {
 		return err
 	}
 	if err := s.createCategoryQuestionsTable(); err != nil {
+		return err
+	}
+	if err := s.createImageTable(); err != nil {
 		return err
 	}
 	return nil
@@ -162,7 +181,6 @@ func (s *Store) GetCategories() ([]model.Category, error) {
 	return categories, nil
 }
 
-// TODO: for debugging purposes, remove this function later
 func (s *Store) GetCategoryByText(text string) (*model.Category, error) {
 	var category model.Category
 	query := `SELECT * FROM categories WHERE text = $1`
@@ -204,6 +222,27 @@ func (s *Store) AssociateQuestionWithCategory(category *model.Category, question
 		return err
 	}
 	return nil
+}
+
+func (s *Store) GetQuestions() ([]model.Question, error) {
+	var questions []model.Question
+	query := `SELECT * FROM questions`
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	rows, err := s.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var question model.Question
+		err := rows.Scan(&question.ID, &question.ImagePath, &question.Text, &question.QuestionNumber, &question.QuestionKey, &question.IsFetched, &question.CreatedAt, &question.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+		questions = append(questions, question)
+	}
+	return questions, nil
 }
 
 func (s *Store) GetQuestionByQuestionKey(questionKey string) (*model.Question, error) {
@@ -304,4 +343,19 @@ func (s *Store) IsQuestionAssociatedWithCategory(categoryId, questionId uint) (b
 		return false, err
 	}
 	return isAssociated, nil
+}
+
+func (s *Store) Close() error {
+	return s.db.Close()
+}
+
+func (s *Store) CreateImage(image *model.Image) error {
+	query := `INSERT INTO images (question_id, file_name) VALUES ($1, $2)`
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_, err := s.db.ExecContext(ctx, query, image.QuestionID, image.Filename)
+	if err != nil {
+		return err
+	}
+	return nil
 }

@@ -8,7 +8,6 @@ type Category struct {
 	ID          uint
 	Text        string
 	CategoryKey string // 4, 5, 6, ...
-	Questions   []Question
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
@@ -20,7 +19,6 @@ type Question struct {
 	QuestionNumber string // 1, 2, 3, ...
 	QuestionKey    string // 1732, 1733, 1734, ...
 	IsFetched      bool
-	Answers        []Answer
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }
@@ -32,6 +30,16 @@ type Answer struct {
 	IsCorrect  bool
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
+}
+
+type Image struct {
+	ID            uint
+	QuestionID    uint
+	HasImage      bool
+	ExtractedText string
+	Filename      string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
 type UpdateQuestionRequest struct {
@@ -74,4 +82,12 @@ func CreateAnswer(text string, isCorrect bool, question *Question) *Answer {
 		QuestionID: question.ID,
 	}
 	return &modelAnswer
+}
+
+func CreateImage(questionId uint, filename string) *Image {
+	modelImage := Image{
+		QuestionID: questionId,
+		Filename:   filename,
+	}
+	return &modelImage
 }
